@@ -1,106 +1,69 @@
-# Snapshot repository
+# NixOS config — new machine guide
 
-This repo is a **snapshot** of the live NixOS configuration plus a few dotfiles.
-The working tree stays at `/etc/nixos`; this repo is for versioning, backup, and
-bootstrapping other machines.
+A modular NixOS + Home Manager setup. Every machine is described by a small
+host folder; everything else is shared.
 
-- `nixos/` — exact copy of `/etc/nixos` (a complete, buildable flake)
-- `dotfiles/` — copies of selected files from `$HOME`
-- `scripts/publish.sh` — refreshes both and stages the result
-
-`nixos/` and `dotfiles/` are **outputs**. Don't edit them directly — the next
-publish overwrites/deletes anything that isn't in `/etc/nixos` or `$HOME`.
-
-## Daily workflow
-
-Edit and rebuild as usual:
-
-```bash
-flakeswitch
+```text
+flake.nix                    one entry per machine
+modules/common.nix           shared system config
+home/common.nix              shared Home Manager config (+ thunar.nix)
+hosts/<hostname>/default.nix machine settings (hostname, timezone, GPU, boot)
+hosts/<hostname>/hardware-configuration.nix   generated on that machine
+dotfiles/                    raw config files for $HOME (not HM-managed)
 ```
 
-`flakeswitch` is a shell function that runs
+Replace every `your_hostname` and `your_username` below with the real values.
+Use the same name for both the hostname and the host folder.
+
+---
+
+## 1. Install NixOS
+
+Install NixOS normally. The installer generates
+`/etc/nixos/hardware-configuration.nix` for **this** machine — you will keep it.
+
+Pick a username during install, or let the config create one later. Use the
+**same** name for `your_username`; the config defines that account and gives it
+`wheel` and `networkmanager`.
+
+## 2. Clone this repo
 
 ```bash
-sudo nixos-rebuild switch --flake /etc/nixos#nixos
-```
-
-and, **only if that succeeds**, runs `nixos-publish`, which copies
-`/etc/nixos` to `nixos/` and your dotfiles to `dotfiles/`, then `git add -A`.
-
-Then, whenever you feel like it:
-
-```bash
-cd ~/nixos-config
-git diff --cached          # review
-git commit -m "Update config"
-git push                   # after adding a remote
-```
-
-If a rebuild fails, nothing is copied — the repo keeps the last config that
-actually built.
-
-Dotfile-only changes do not trigger a rebuild, so publish them by hand:
-
-```bash
-nixos-publish
-```
-
-## One-time setup
-
-```bash
-cd ~/nixos-config
-git config user.name  "Your Name"
-git config user.email "you@example.com"
-git remote add origin git@github.com:YOUR_USER/YOUR_REPO.git
-git push -u origin main
-```
-
-## Building straight from the repo
-
-`nixos/` is a standalone flake, so this works too (useful to test the snapshot):
-
-```bash
-nixos-rebuild build --flake ~/nixos-config/nixos#nixos
-```
-
-## Reusing this on another machine (including someone else's)
-
-Usernames are **per host**, not hardcoded. Each machine is described by:
-
-- `nixos/hosts/<name>/default.nix` — hostname, timezone, GPU, bootloader, `stateVersion`
-- `nixos/hosts/<name>/hardware-configuration.nix` — generated on that machine
-- one line in `nixos/flake.nix` — `hostDir` + `username`
-
-**Rule:** the flake attribute must match `networking.hostName`, because
-`flakeswitch` runs `nixos-rebuild ... --flake /etc/nixos#$(hostname)`.
-
-### Steps on the new machine
-
-```bash
-# 1. Install NixOS, then:
 git clone https://github.com/dondragonstar/nixos-config-hydragon2000.git ~/nixos-config
-sudo cp -a ~/nixos-config/nixos/. /etc/nixos/
-
-# 2. Replace the hardware file with THIS machine's generated one
-sudo cp /etc/nixos/hardware-configuration.nix ~/hw.backup   # keep the installer's file
-sudo cp /path/to/installer/hardware-configuration.nix ~/nixos-config/nixos/hosts/<name>/
-#    (or re-run `nixos-generate-config --show-hardware-config`)
-
-# 3. Create hosts/<name>/default.nix  (see template below)
-
-# 4. Add the host to flake.nix
-#    <hostname> = mkHost { hostDir = "<name>"; username = "<user>"; };
-
-# 5. Build, then switch
-nixos-rebuild build  --flake /etc/nixos#<hostname>
-sudo nixos-rebuild switch --flake /etc/nixos#<hostname>
-
-# 6. Give the account a password
-sudo passwd <user>
 ```
 
-Template for `hosts/<name>/default.nix`:
+If the fresh install has no `git` yet:
+
+```bash
+nix-shell -p git --run \
+  'git clone https://github.com/dondragonstar/nixos-config-hydragon2000.git ~/nixos-config'
+```
+
+## 3. Move the hardware file, then copy the config
+
+```bash
+sudo mkdir -p /etc/nixos/hosts/your_hostname
+sudo mv /etc/nixos/hardware-configuration.nix \
+        /etc/nixos/hosts/your_hostname/hardware-configuration.nix
+
+sudo cp -a ~/nixos-config/nixos/. /etc/nixos/
+```
+
+If there is no `/etc/nixos/hardware-configuration.nix`, regenerate it:
+
+```bash
+sudo nixos-generate-config
+```
+
+## 4. Create the host file
+
+```bash
+sudo nano /etc/nixos/hosts/your_hostname/default.nix
+```
+
+(`hx` isn't installed until after the first switch — use `nano` here.)
+
+Contents of `hosts/your_hostname/default.nix`:
 
 ```nix
 { config, pkgs, ... }:
@@ -108,38 +71,157 @@ Template for `hosts/<name>/default.nix`:
 {
   imports = [ ./hardware-configuration.nix ];
 
-  networking.hostName = "friend";        # must equal the flake attribute name
-  time.timeZone = "Asia/Kolkata";
-  system.stateVersion = "26.05";         # the release when THIS machine was installed
+  # Must match the flake attribute name in step 5.
+  networking.hostName = "your_hostname";
 
-  # Bootloader of this machine (installer default here):
+  time.timeZone = "Asia/Kolkata";
+  system.stateVersion = "26.05";   # the release this machine was installed with
+
+  # Bootloader — use whatever the installer set up.
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
 
-  # GPU of this machine. Do NOT copy the laptop's NVIDIA block.
-  services.xserver.videoDrivers = [ "modesetting" ];  # or "amdgpu"/"nvidia"
+  # GPU: pick the one for this machine.
+  #   Intel / generic : [ "modesetting" ]
+  #   AMD             : [ "amdgpu" ]
+  #   NVIDIA          : [ "nvidia" ]  + a hardware.nvidia block
+  services.xserver.videoDrivers = [ "modesetting" ];
 }
 ```
 
-Keep out of the new host file: `hardware.nvidia.*`, NVIDIA bus IDs, the
-laptop's GRUB block, `boot.initrd.kernelModules = [ "i915" ]`, its hostname,
-timezone, and `stateVersion`.
+## 5. Register the host in flake.nix
 
-### Dotfiles for the new user
+Open `/etc/nixos/flake.nix` and look at the bottom:
 
-`dotfiles/` is not managed by Home Manager, so copy it and fix the paths that
-contain your username:
-
-```bash
-sudo rsync -a --chown=<user>:users dotfiles/.config/ /home/<user>/.config/
-sudo rsync -a --chown=<user>:users dotfiles/.local/  /home/<user>/.local/
-sudo sed -i 's|/home/hydragon2000|/home/<user>|g' \
-  /home/<user>/.config/mango/config.conf \
-  /home/<user>/.config/noctalia/config.toml
+```nix
+nixosConfigurations = {
+  nixos = mkHost { hostDir = "laptop"; username = "hydragon2000"; };
+  # ...
+};
 ```
 
-Also fix the wallpaper path in Noctalia and copy wallpapers if you want them.
-Do not copy `~/.ssh`, browser profiles, or anything personal.
+**Delete the `nixos = mkHost { ... };` line.** It describes the original laptop
+(NVIDIA, custom GRUB, Intel initrd) and must never be built on another machine.
 
-Never copy another machine's `hardware-configuration.nix`, NVIDIA bus IDs,
-bootloader device, or `system.stateVersion` wholesale.
+Add your machine instead:
+
+```nix
+nixosConfigurations = {
+  your_hostname = mkHost {
+    hostDir  = "your_hostname";
+    username = "your_username";
+  };
+};
+```
+
+Notes:
+
+- The attribute name **must** equal `networking.hostName`; the `flakeswitch`
+  helper resolves it with `--flake /etc/nixos#$(hostname)`.
+- 32-bit ARM or other architectures: add `system = "aarch64-linux";`.
+- The username is used everywhere automatically (`users.users.<name>`,
+  `home.username`, `home.homeDirectory = /home/<name>`).
+
+## 6. Build, then switch
+
+Do **not** run `flakeswitch` yet: on a fresh install the hostname may still be
+`nixos`, which would point at the wrong attribute.
+
+```bash
+cd /tmp
+sudo nixos-rebuild build  --flake /etc/nixos#your_hostname
+sudo nixos-rebuild switch --flake /etc/nixos#your_hostname
+```
+
+If the build fails, fix the errors before switching. `build` never activates
+anything.
+
+## 7. Set the account password
+
+```bash
+sudo passwd your_username
+```
+
+The account gets `wheel` and `networkmanager` groups automatically.
+
+## 8. Install the dotfiles
+
+These are plain files, not Home Manager-managed. Copy them and fix the paths
+that still contain the original username:
+
+```bash
+cd ~/nixos-config
+
+sudo rsync -a --chown=your_username:users dotfiles/.config/ /home/your_username/.config/
+sudo rsync -a --chown=your_username:users dotfiles/.local/  /home/your_username/.local/
+
+sudo sed -i 's|/home/hydragon2000|/home/your_username|g' \
+  /home/your_username/.config/mango/config.conf \
+  /home/your_username/.config/noctalia/config.toml
+```
+
+Then:
+
+- Put wallpapers in `/home/your_username/Pictures/Wallpapers` (or edit the path
+  in `noctalia/config.toml`).
+- Make sure `~/.local/bin/mango-*` are executable (rsync preserves the mode).
+
+## 9. Reboot
+
+```bash
+sudo reboot
+```
+
+Log in as `your_username`. Mango, Noctalia and the bar should come up.
+
+## 10. Going forward
+
+```bash
+flakeswitch          # rebuild; on success, snapshot /etc/nixos into ~/nixos-config
+cd ~/nixos-config
+git commit -am "what changed"
+git push             # after pointing origin at your own repo/fork
+```
+
+The clone still points at the original repo. To keep your own copy:
+
+```bash
+git remote set-url origin git@github.com:YOUR_ACCOUNT/YOUR_REPO.git
+```
+
+---
+
+## Do not copy from another machine
+
+| Thing | Why |
+|---|---|
+| `hardware-configuration.nix` | disk UUIDs, filesystems, CPU microcode |
+| `hardware.nvidia.*`, bus IDs | specific to the original laptop's GPU |
+| `boot.loader.grub.*` | bootloader type/device/EFI layout |
+| `boot.initrd.kernelModules = [ "i915" ]` | Intel-specific |
+| `system.stateVersion` | must match the release **this** machine was installed with |
+| `~/.ssh`, browser profiles | private keys and personal data |
+
+`system.stateVersion` is not a normal setting: it must be the release this
+machine was **installed** with and should never be bumped afterwards. A wrong
+value does not fail the build; it silently changes migration behaviour.
+
+## Changing hostname or username later
+
+- Hostname: `networking.hostName` in `hosts/<name>/default.nix` **and** the
+  flake attribute name (they must stay equal).
+- Username: the `username = "...";` argument in `flake.nix` only. Home
+  directory and the NixOS account follow it. Moving an existing account's
+  files is a manual `mv /home/old /home/new` + `chown` afterwards.
+
+## Troubleshooting
+
+- `does not provide attribute 'nixosConfigurations.<name>'` → the hostname and
+  the flake attribute name differ.
+- Build fails on `hardware.nvidia` → you copied the original laptop's GPU block.
+- `result` symlink errors in `/etc/nixos` → build from `/tmp`, not from
+  `/etc/nixos`.
+- `nixos-publish: command not found` → the shell was started before the
+  rebuild; open a new terminal (or run `~/.local/bin/nixos-publish`).
+- `dotnix host` always opens `hosts/laptop/default.nix` → use
+  `sudo hx /etc/nixos/hosts/your_hostname/default.nix` on other machines.
