@@ -64,17 +64,82 @@ git push -u origin main
 nixos-rebuild build --flake ~/nixos-config/nixos#nixos
 ```
 
-## Reusing this on another machine
+## Reusing this on another machine (including someone else's)
 
-1. Install NixOS on the new machine.
-2. Clone this repo to `~/nixos-config`.
-3. Copy `~/nixos-config/nixos/` to `/etc/nixos` (or edit `/etc/nixos` and let
-   `flakeswitch` fill the repo).
-4. Replace `nixos/hosts/laptop/hardware-configuration.nix` with the new
-   machine's **own** generated file, and add a host folder + flake attribute
-   as described in `nixos/README.md`.
-5. Copy the dotfiles from `dotfiles/` into `$HOME` (after wiring them into
-   Home Manager, see `nixos/README.md`).
+Usernames are **per host**, not hardcoded. Each machine is described by:
+
+- `nixos/hosts/<name>/default.nix` — hostname, timezone, GPU, bootloader, `stateVersion`
+- `nixos/hosts/<name>/hardware-configuration.nix` — generated on that machine
+- one line in `nixos/flake.nix` — `hostDir` + `username`
+
+**Rule:** the flake attribute must match `networking.hostName`, because
+`flakeswitch` runs `nixos-rebuild ... --flake /etc/nixos#$(hostname)`.
+
+### Steps on the new machine
+
+```bash
+# 1. Install NixOS, then:
+git clone https://github.com/dondragonstar/nixos-config-hydragon2000.git ~/nixos-config
+sudo cp -a ~/nixos-config/nixos/. /etc/nixos/
+
+# 2. Replace the hardware file with THIS machine's generated one
+sudo cp /etc/nixos/hardware-configuration.nix ~/hw.backup   # keep the installer's file
+sudo cp /path/to/installer/hardware-configuration.nix ~/nixos-config/nixos/hosts/<name>/
+#    (or re-run `nixos-generate-config --show-hardware-config`)
+
+# 3. Create hosts/<name>/default.nix  (see template below)
+
+# 4. Add the host to flake.nix
+#    <hostname> = mkHost { hostDir = "<name>"; username = "<user>"; };
+
+# 5. Build, then switch
+nixos-rebuild build  --flake /etc/nixos#<hostname>
+sudo nixos-rebuild switch --flake /etc/nixos#<hostname>
+
+# 6. Give the account a password
+sudo passwd <user>
+```
+
+Template for `hosts/<name>/default.nix`:
+
+```nix
+{ config, pkgs, ... }:
+
+{
+  imports = [ ./hardware-configuration.nix ];
+
+  networking.hostName = "friend";        # must equal the flake attribute name
+  time.timeZone = "Asia/Kolkata";
+  system.stateVersion = "26.05";         # the release when THIS machine was installed
+
+  # Bootloader of this machine (installer default here):
+  boot.loader.systemd-boot.enable = true;
+  boot.loader.efi.canTouchEfiVariables = true;
+
+  # GPU of this machine. Do NOT copy the laptop's NVIDIA block.
+  services.xserver.videoDrivers = [ "modesetting" ];  # or "amdgpu"/"nvidia"
+}
+```
+
+Keep out of the new host file: `hardware.nvidia.*`, NVIDIA bus IDs, the
+laptop's GRUB block, `boot.initrd.kernelModules = [ "i915" ]`, its hostname,
+timezone, and `stateVersion`.
+
+### Dotfiles for the new user
+
+`dotfiles/` is not managed by Home Manager, so copy it and fix the paths that
+contain your username:
+
+```bash
+sudo rsync -a --chown=<user>:users dotfiles/.config/ /home/<user>/.config/
+sudo rsync -a --chown=<user>:users dotfiles/.local/  /home/<user>/.local/
+sudo sed -i 's|/home/hydragon2000|/home/<user>|g' \
+  /home/<user>/.config/mango/config.conf \
+  /home/<user>/.config/noctalia/config.toml
+```
+
+Also fix the wallpaper path in Noctalia and copy wallpapers if you want them.
+Do not copy `~/.ssh`, browser profiles, or anything personal.
 
 Never copy another machine's `hardware-configuration.nix`, NVIDIA bus IDs,
 bootloader device, or `system.stateVersion` wholesale.
