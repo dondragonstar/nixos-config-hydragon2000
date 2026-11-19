@@ -27,9 +27,11 @@
       # One NixOS configuration per folder under hosts/.
       # `system` can be overridden per host if the second machine is not
       # x86_64-linux.
-      mkHost = { hostDir, system ? "x86_64-linux" }:
+      mkHost = { hostDir, username, system ? "x86_64-linux" }:
         nixpkgs.lib.nixosSystem {
           inherit system;
+          # Available to every NixOS module in this host.
+          specialArgs = { inherit username; };
           modules = [
             ./modules/common.nix
             (./hosts + "/${hostDir}/default.nix")
@@ -39,8 +41,8 @@
               home-manager = {
                 useGlobalPkgs = true;
                 useUserPackages = true;
-                extraSpecialArgs = { inherit inputs; };
-                users.hydragon2000 = import ./home/common.nix;
+                extraSpecialArgs = { inherit inputs username; };
+                users.${username} = import ./home/common.nix;
                 backupFileExtension = "backup";
               };
             }
@@ -51,7 +53,7 @@
       nixosConfigurations = {
         # Keep the old attribute name so `--flake /etc/nixos#nixos` and the
         # `flakeswitch` alias keep working unchanged.
-        nixos = mkHost { hostDir = "laptop"; };
+        nixos = mkHost { hostDir = "laptop"; username = "hydragon2000"; };
 
         # After installing NixOS on the second PC and copying its generated
         # hardware-configuration.nix into hosts/desktop/, uncomment this:

@@ -1,12 +1,12 @@
-{ config, pkgs, inputs, ... }:
+{ config, pkgs, inputs, username, ... }:
 
 {
   imports = [
     ./thunar.nix
     inputs.zen-browser.homeModules.default
   ];
-  home.username = "hydragon2000";
-  home.homeDirectory = "/home/hydragon2000";
+  home.username = username;
+  home.homeDirectory = "/home/${username}";
   home.stateVersion = "26.05";
 
   # ~/.local/bin holds nixos-publish and the mango helper scripts.
@@ -46,7 +46,9 @@
 
       # Rebuild; only if it succeeds, snapshot /etc/nixos into ~/nixos-config.
       flakeswitch() {
-        sudo nixos-rebuild switch --flake /etc/nixos#nixos "$@" || return $?
+        local attr
+        attr="$(hostname)"
+        sudo nixos-rebuild switch --flake "/etc/nixos#''${attr}" "$@" || return $?
         "$HOME/.local/bin/nixos-publish"
       }
 

@@ -1,6 +1,6 @@
 # Shared system configuration for every machine.
 # Machine-specific boot/GPU/hardware settings live in ../hosts/<host>/.
-{ config, pkgs, ... }:
+{ config, pkgs, username, ... }:
 
 let
   # Orbital clock SDDM theme (https://github.com/Rizmi/orbital-clock-sddm),
@@ -80,9 +80,9 @@ in
   };
 
   # Define a user account. Don't forget to set a password with ‘passwd’.
-  users.users."hydragon2000" = {
+  users.users.${username} = {
     isNormalUser = true;
-    description = "hydragon2000";
+    description = username;
     extraGroups = [ "networkmanager" "wheel" ];
     packages = with pkgs; [];
   };
@@ -160,6 +160,7 @@ in
       helix
       wget
       git
+      rsync
       ghostty
       curl
       fuzzel
