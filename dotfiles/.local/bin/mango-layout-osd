@@ -1,0 +1,154 @@
+#!/usr/bin/env python3
+"""Show the current Mango tag layout as a single, self-replacing notification.
+
+Watches `mmsg watch all-tags`, and whenever the active tag's layout changes it
+re-sends ONE notification through the freedesktop notification daemon using
+`replaces_id`. That keeps the popup in place while you cycle layouts and lets
+it expire 5s after the last change instead of stacking.
+
+Only the active tag matters. Switching tags adopts the new tag's layout
+silently; the popup only appears when the layout of the tag you are already
+on actually changes (i.e. you pressed Super+n).
+"""
+
+import json
+import os
+import re
+import subprocess
+import time
+
+APP_NAME = "Mango Layout"
+SUMMARY = "Layout"
+EXPIRE_MS = 5000
+
+LAYOUT_NAMES = {
+    "T": "Tile",
+    "S": "Scroller",
+    "DW": "Dwindle",
+    "G": "Grid",
+    "M": "Monocle",
+    "K": "Deck",
+    "CT": "Center Tile",
+    "RT": "Right Tile",
+    "VS": "Vertical Scroller",
+    "VT": "Vertical Tile",
+    "VG": "Vertical Grid",
+    "VK": "Vertical Deck",
+    "F": "Fair",
+    "VF": "Vertical Fair",
+}
+
+STATE_DIR = os.environ.get("XDG_RUNTIME_DIR", "/tmp")
+STATE_FILE = os.path.join(STATE_DIR, "mango-layout-osd.id")
+
+
+def load_id():
+    try:
+        with open(STATE_FILE) as fh:
+            return int(fh.read().strip() or 0)
+    except (OSError, ValueError):
+        return 0
+
+
+def save_id(value):
+    try:
+        with open(STATE_FILE, "w") as fh:
+            fh.write(str(value))
+    except OSError:
+        pass
+
+
+def notify(body, replaces):
+    try:
+        out = subprocess.run(
+            [
+                "gdbus",
+                "call",
+                "--session",
+                "--dest",
+                "org.freedesktop.Notifications",
+                "--object-path",
+                "/org/freedesktop/Notifications",
+                "--method",
+                "org.freedesktop.Notifications.Notify",
+                APP_NAME,
+                str(replaces),
+                "",
+                SUMMARY,
+                body,
+                "[]",
+                "{}",
+                str(EXPIRE_MS),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return replaces
+
+    match = re.search(r"uint32\s+(\d+)", out.stdout or "")
+    if match:
+        new_id = int(match.group(1))
+        save_id(new_id)
+        return new_id
+    return replaces
+
+
+def active_tag(payload):
+    for monitor in payload.get("all_tags", []):
+        for tag in monitor.get("tags", []):
+            if tag.get("is_active"):
+                return tag.get("index"), tag.get("layout", "")
+    return None, None
+
+
+def main():
+    replaces = load_id()
+    last = None
+
+    while True:
+        proc = subprocess.Popen(
+            ["mmsg", "watch", "all-tags"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+        )
+        try:
+            for line in proc.stdout:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    payload = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+
+                tag, symbol = active_tag(payload)
+                if tag is None:
+                    continue
+
+                # Switching tags never pops anything: adopt the new tag's
+                # layout silently and wait for an actual layout change on it.
+                if last is None or tag != last[0]:
+                    last = (tag, symbol)
+                    continue
+                if symbol == last[1]:
+                    continue
+                last = (tag, symbol)
+
+                name = LAYOUT_NAMES.get(symbol, symbol or "?")
+                replaces = notify(f"{name}  ·  tag {tag}", replaces)
+        finally:
+            proc.terminate()
+            try:
+                proc.wait(timeout=2)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+
+        # mmsg died (compositor restart?): back off, then reattach.
+        time.sleep(2)
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,205 @@
+# Noctalia config for the Mango session (single default profile).
+# Docs: https://docs.noctalia.dev
+
+# ── Shell ─────────────────────────────────────────────────────────────────────
+
+[shell]
+font_family            = "JetBrainsMono Nerd Font"
+time_format            = "{:%H:%M}"
+date_format            = "%A, %x"
+telemetry_enabled      = false
+setup_wizard_enabled   = false
+offline_mode           = false
+show_location          = true
+settings_show_advanced = true
+
+[shell.animation]
+enabled = true
+speed   = 1.2
+
+[shell.panel]
+transparency_mode = "solid"
+borders           = true
+shadow            = true
+
+# Panels open from the widget you clicked, not dead-centre.
+launcher_placement       = "attached"
+clipboard_placement      = "attached"
+control_center_placement = "attached"
+session_placement        = "attached"
+open_near_click_launcher       = true
+open_near_click_clipboard      = true
+open_near_click_control_center = true
+open_near_click_session        = true
+
+[shell.launcher]
+categories    = true
+show_icons    = true
+sort_by_usage = true
+
+# ── Theme ─────────────────────────────────────────────────────────────────────
+# Same Tokyo-Night palette as before.
+
+[theme]
+mode            = "dark"
+source          = "builtin"
+builtin         = "Tokyo-Night"
+pure_black_dark = false
+
+# ── Bars ──────────────────────────────────────────────────────────────────────
+# Two bars:
+#   main  — vertical strip down the left edge
+#   clock — invisible full-width strip whose only content is the centred clock
+
+[bar]
+order = ["main"]
+
+[bar.main]
+position           = "left"
+layer              = "overlay"
+thickness          = 52
+background_opacity = 1.0
+radius             = 0
+radius_top_left    = 0
+radius_top_right   = 0
+radius_bottom_left = 0
+radius_bottom_right = 0
+concave_edge_corners = false
+margin_ends         = 0
+margin_edge         = 0
+padding             = 12
+widget_spacing      = 10
+scale               = 1.0
+font_scale          = 1.0
+font_weight         = 500
+shadow              = false
+auto_hide           = false
+reserve_space       = true
+capsule             = false
+
+# top of the strip → launcher, wallpaper picker, Mango tag numbers
+start  = ["launcher", "wallpaper", "workspaces"]
+# middle → running apps, icon-only (the dock-ish bit)
+center = ["taskbar"]
+# bottom → status cluster
+end    = ["clock", "media", "tray", "keyboard_layout", "bluetooth",
+          "network", "volume", "brightness", "battery", "notifications",
+          "control-center", "session"]
+
+# ── Widgets ───────────────────────────────────────────────────────────────────
+
+[widget.launcher]
+glyph = "menu-2"
+
+[widget.clock]
+format          = "{:%H:%M}"
+vertical_format = "{:%H\n%M}"
+tooltip_format  = "{:%A, %B %d, %Y}"
+
+# Mango tags 1–9, numbered so you can learn the model.
+[widget.workspaces]
+style              = "minimal"
+show_labels        = true
+label_source       = "id"
+max_label_chars    = 1
+show_icons         = false
+focused_color      = "primary"
+occupied_color     = "secondary"
+empty_color        = "secondary"
+
+# Icon-only running apps in the middle of the bar.
+# Only the current Mango tag is shown, and windows of the same app collapse
+# into one icon, so the strip cannot grow without bound as apps pile up.
+[widget.taskbar]
+show_all_outputs          = true
+icon_scale                = 1.15
+item_spacing              = 4
+show_active_indicator     = true
+active_indicator_color    = "primary"
+only_active_workspace     = true
+group_by_workspace        = true
+group_single_icon_per_app = true
+show_workspace_label      = false
+hide_empty_workspaces     = true
+workspace_group_capsule   = false
+
+[widget.media]
+hide_when_no_media = true
+
+[widget.keyboard_layout]
+hide_when_single_layout = true
+
+[widget.volume]
+show_label = false
+
+[widget.brightness]
+show_label = false
+
+[widget.network]
+show_label = false
+
+[widget.bluetooth]
+show_label = false
+
+[widget.battery]
+display_mode = "glyph"
+show_label   = true
+
+# ── Notifications ─────────────────────────────────────────────────────────────
+
+[notification]
+enable_daemon      = true
+show_app_name      = true
+show_actions       = true
+background_opacity = 0.97
+
+# ── Wallpaper ─────────────────────────────────────────────────────────────────
+# Wallpaper folder.
+
+[wallpaper]
+enabled               = true
+fill_mode             = "crop"
+transition            = ["fade", "wipe", "zoom"]
+transition_duration   = 900
+edge_smoothness       = 0.3
+transition_on_startup = false
+directory             = "/home/hydragon2000/Pictures/Wallpapers"
+
+[wallpaper.default]
+path = "/home/hydragon2000/Pictures/Wallpapers/qs-niri.jpg"
+
+[wallpaper.automation]
+enabled          = false
+interval_seconds = 1800
+order            = "random"
+recursive        = false
+
+# ── Backdrop ──────────────────────────────────────────────────────────────────
+
+[backdrop]
+enabled = false
+
+# ── Dock ──────────────────────────────────────────────────────────────────────
+# Off: running apps live in the centre of the left strip instead.
+# Want the real macOS-style bottom dock? Set enabled = true and reload.
+
+[dock]
+enabled             = false
+position            = "bottom"
+icon_size           = 48
+magnification       = true
+magnification_scale = 1.45
+active_scale        = 1.0
+inactive_scale      = 0.85
+show_running        = true
+show_dots           = true
+show_instance_count = true
+auto_hide           = false
+reserve_space       = true
+background_opacity  = 0.88
+border_width        = 0
+shadow              = true
+radius              = 16
+margin_ends         = 0
+margin_edge         = 0
+pinned              = []

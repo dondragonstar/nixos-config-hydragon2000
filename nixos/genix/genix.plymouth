@@ -1,0 +1,9 @@
+[Plymouth Theme]
+Name=genix
+Description=Genix7000 Nix logo spin, rendered with manim
+Comment=plymouth-manim project
+ModuleName=script
+
+[script]
+ImageDir=@SHARE@/genix
+ScriptFile=@SHARE@/genix/genix.script

@@ -1,0 +1,35 @@
+# Rio config, mirroring ~/.config/ghostty/config.
+# Rio hot-reloads this file on save, no restart needed.
+# Keys without a [section] header must stay at the top.
+
+theme = "elementary"          # ghostty: theme = Elementary
+confirm-before-quit = false   # ghostty: confirm-close-surface = false
+padding = [2]                 # ghostty default window-padding-x/y = 2
+
+[window]
+decorations = "Disabled"      # ghostty: window-decoration = false
+# opacity = 0.75              # counterpart of ghostty's (commented) background-opacity
+
+[fonts]
+family = "JetBrainsMono Nerd Font Mono"   # ghostty bundles JetBrains Mono; this is the Nerd-patched build
+size = 16.0                               
+use-drawable-chars = true                 # crisp box-drawing/powerline glyphs
+
+[cursor]
+shape = "block"               # ghostty default cursor-style = block
+blinking = false              # ghostty default cursor-style-blink = false
+
+[navigation]
+hide-if-single = true         # no tab strip until a second tab exists
+
+[renderer]
+# "events" = redraw only when something changes (0% idle CPU).
+# If a window ever shows stale pixels until you press a key, upstream bug #1604:
+# switch to strategy = "game" (continuously renders, ~7% of one core while idle).
+strategy = "events"
+# disable-occluded-render = true made that stale-frame bug much worse on mango:
+# Rio skips all rendering while the compositor reports the window as occluded.
+
+[developer]
+# enable-fps-counter = true
+# log-level = "INFO"

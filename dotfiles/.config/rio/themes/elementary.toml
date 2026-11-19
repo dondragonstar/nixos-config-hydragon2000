@@ -1,0 +1,31 @@
+# Ghostty "Elementary" palette, ported to Rio.
+# Source: `ghostty +show-config` on this machine (theme = Elementary).
+# Rio theme files are plain `[colors]` tables; missing keys fall back to Rio's defaults.
+
+[colors]
+background = "#181818"
+foreground = "#efefef"
+
+# Normal
+black = "#242424"
+red = "#d71c15"
+green = "#5aa513"
+yellow = "#fdb40c"
+blue = "#134899"
+magenta = "#e40038"
+cyan = "#2595e1"
+white = "#efefef"
+
+# Bright (ghostty palette 8-15)
+light-black = "#4b4b4b"
+light-red = "#fc1c18"
+light-green = "#6bc219"
+light-yellow = "#fec80e"
+light-blue = "#0955ff"
+light-magenta = "#fb0050"
+light-cyan = "#3ea8fc"
+light-white = "#8c00ec"
+
+cursor = "#bbbbbb"
+selection-background = "#b5d5ff"
+selection-foreground = "#000000"

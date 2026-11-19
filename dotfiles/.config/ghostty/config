@@ -1,0 +1,7 @@
+window-decoration = false
+theme = Elementary
+confirm-close-surface = false
+# New launches hand off to the running process via dbus (~0.15s instead of
+# ~0.7s full GTK init). First launch of the session is still a full init.
+gtk-single-instance = true
+# background-opacity = 0.75
